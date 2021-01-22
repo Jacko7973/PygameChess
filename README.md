@@ -1,4 +1,4 @@
-# Pygmae Chess
+# Pygame Chess
 
 A simple python implimentation of chess using the pygame module
 
