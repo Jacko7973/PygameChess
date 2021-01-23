@@ -7,10 +7,9 @@ import os
 import pickle
 import socket
 import threading
-import ctypes
-import time
+import json
 
-import numpy
+import numpy as np
 
 from ChessBoard import ChessBoard
 
@@ -58,22 +57,37 @@ class ChessGamesObject:
 
 class ClientThread:
 
-    def __init__(self, client_socket, client_address, game_object):
-        self.client_socket, self.client_address, self.game_object = client_socket, client_address = game_object
+    def __init__(self, client_socket, client_address, game_object, game_id):
+        self.client_socket, self.client_address = client_socket, client_address
+        self.game_object, self.game_id = game_object, game_id
         self.active = True
+        self.get_board = lambda: game_object.games[game_id]['board']
+        self.sendBoard()
+
         self.handleClient()
 
     def handleClient(self):
         while self.active:
-            msg = self.client_socket.recv(256).decode()
-            print(msg)
-            self.endConnection()
+            msg = self.client_socket.recv(64).decode()
+            if msg == '!DISCONNECT': break
 
         self.client_socket.close()
 
+    def sendMsg(self, data):
+        if isinstance(data, dict):
+            data = '&'.join(key+':'+val for key, val in data.items())
+        self.client_socket.send(data.encode() + b'\n')
+
     def endConnection(self):
-        self.client_socket.send(b'!DISCONNECT')
+        self.sendMsg('!DISCONNECT')
         self.active = False
+
+    def sendBoard(self):
+        board = self.get_board().getBoardValues()
+        new_board = []
+        for row in board: new_board += [item for item in row]
+        self.sendMsg({'BOARD' : ' '.join(str(item) for item in new_board)})
+
 
 
 class ChessServer:
@@ -105,8 +119,6 @@ class ChessServer:
                 return
 
             print(f'[CONNECTION] New connection to {client_address[0]}')
-            # client_thread = threading.Thread(target=ClientThread, args=(client_socket, client_address))
-            # client_thread.start()
             self.handleClient(client_socket, client_address)
 
     def handleClient(self, client_socket, client_address):
@@ -119,9 +131,10 @@ class ChessServer:
             print(f'Starting game {game_id} with players: {p1[1][0]} and {p2[1][0]}')
             for (sock, addr) in [p1, p2]:
                 sock.send(b''); sock.send(b'ENTERING GAME ' + str(game_id).encode() + b'\n');
-                sock.close(); print(f'Connection closed to {addr}')
 
-
+                client_thread = threading.Thread(target=ClientThread, args=(sock, addr, self.chess_games, game_id))
+                client_thread.start()
+                # sock.close(); print(f'Connection closed to {addr}')
 
 
 
