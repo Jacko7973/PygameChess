@@ -1,6 +1,6 @@
 # Jack O'Connor
 # Pygame Chess Project
-# PygameChess.py
+# ChessServer.py
 
 import argparse
 import os
@@ -12,6 +12,8 @@ import time
 
 import numpy
 
+from ChessBoard import ChessBoard
+
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="Starts a chess server")
@@ -22,34 +24,56 @@ def parseArgs():
     return parser.parse_args()
 
 
-class ClientThread(threading.Thread):
+class ChessGamesObject:
 
-    def __init__(self, client_socket, client_address):
-        threading.Thread.__init__(self)
-        self.client_socket, self.client_address = client_socket, client_address
+    def __init__(self, games={}):
+        self.lock = threading.Lock()
+        self.__games = games
+
+    @property
+    def games(self): return self.__games
+
+    @games.getter
+    def games(self): return self.__games
+
+    def __editGames(self, game_id, new_data=None, delete=False):
+        with self.lock:
+            if delete:
+                del self.games[game_id]
+                return
+            self.games[game_id] = new_data
+
+
+    def createGame(self, p1, p2):
+        game_id = len(self.games)
+        game = {
+            'players' : (p1, p2),
+            'board' : ChessBoard()
+        }
+        self.__editGames(game_id, game)
+
+        return game_id
+
+
+
+class ClientThread:
+
+    def __init__(self, client_socket, client_address, game_object):
+        self.client_socket, self.client_address, self.game_object = client_socket, client_address = game_object
         self.active = True
         self.handleClient()
 
     def handleClient(self):
         while self.active:
-            self.client_socket.send(b'pp')
+            msg = self.client_socket.recv(256).decode()
+            print(msg)
+            self.endConnection()
 
-    def getID(self):
-        if hasattr(self, '_thread_id'):
-            return self._thread_id
-        for id, thread in threading._active.items():
-            if thread is self: return id
-
-    def endConnection(self):
-        self.active = False
         self.client_socket.close()
 
-        # thread_id = self.getID()
-        # res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-        # if res > 1:
-        #     ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
-        #     print('Unable to exit thread')
-
+    def endConnection(self):
+        self.client_socket.send(b'!DISCONNECT')
+        self.active = False
 
 
 class ChessServer:
@@ -57,8 +81,12 @@ class ChessServer:
     def __init__(self, host, port, max_conns):
         self.host, self.port, self.max_conns = host, port, max_conns
 
+        games = {}
         with open('saved_chess_games.txt', 'rb') as f:
-            self.games = pickle.load(f)
+            games = pickle.load(f)
+        print(f'Starting with {len(games)} active sessions')
+        self.chess_games = ChessGamesObject(games=games)
+        self.waiting_room = []
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((self.host, self.port))
@@ -69,16 +97,31 @@ class ChessServer:
         self.server.listen(self.max_conns)
         print(f'Accepting clients on {self.host} at port {self.port}')
         while True:
-            client_socket, client_address = self.server.accept()
-            print(f'[CONNECTION] New connection to {client_address[0]}')
-            client_thread = ClientThread(client_socket, client_address)
-            client_thread.start()
+            try:
+                client_socket, client_address = self.server.accept()
+            except KeyboardInterrupt:
+                print('\nExiting...')
+                self.server.close()
+                return
 
-            time.sleep(1)
-            print('Closing connection')
-            client_thread.endConnection()
-            client_thread.join()
-            print(threading.active_count())
+            print(f'[CONNECTION] New connection to {client_address[0]}')
+            # client_thread = threading.Thread(target=ClientThread, args=(client_socket, client_address))
+            # client_thread.start()
+            self.handleClient(client_socket, client_address)
+
+    def handleClient(self, client_socket, client_address):
+        self.waiting_room.append((client_socket, client_address))
+        client_socket.send(b'WAITING\n')
+
+        if len(self.waiting_room) >= 2:
+            p1, p2 = self.waiting_room.pop(0), self.waiting_room.pop(0)
+            game_id = self.chess_games.createGame(p1, p2)
+            print(f'Starting game {game_id} with players: {p1[1][0]} and {p2[1][0]}')
+            for (sock, addr) in [p1, p2]:
+                sock.send(b''); sock.send(b'ENTERING GAME ' + str(game_id).encode() + b'\n');
+                sock.close(); print(f'Connection closed to {addr}')
+
+
 
 
 
