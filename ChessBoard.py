@@ -5,7 +5,6 @@
 import numpy as np
 import copy
 
-
 class Piece:
 
     def __init__(self, value):
@@ -20,6 +19,7 @@ class ChessBoard:
         self._board = self.createBoard()
         self.promotionCallback = promotionCallback
         self.test = test
+        self.turn = 1
 
     @property
     def board(self): return self._board
@@ -43,6 +43,9 @@ class ChessBoard:
 
     def movePiece(self, start, end):
 
+        startPiece = self.board[start[1]][start[0]]
+        if startPiece == 0 or startPiece.team != self.turn:
+            return
         possibleMoves, specialMoves = self.getPossibleMoves(start, special=True)
         if end in possibleMoves:
             for move in specialMoves:
@@ -59,8 +62,8 @@ class ChessBoard:
 
             self._board[end[1]][end[0]] = self._board[start[1]][start[0]]
             self._board[start[1]][start[0]] = 0
-            if not self.test:
-                self._board[end[1]][end[0]].has_moved = True
+            if not self.test: self._board[end[1]][end[0]].has_moved = True
+            self.turn *= -1
         else:
             print("Not a valid move:", start, end)
 

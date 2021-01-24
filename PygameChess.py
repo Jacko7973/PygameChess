@@ -8,6 +8,7 @@ import pygame
 from pygame.locals import *
 
 from ChessBoard import ChessBoard
+from ClientBoard import ClientBoard
 from PygameChessBoard import PygameChessBoard
 
 class PygameChess:
@@ -46,7 +47,8 @@ class PygameChess:
 
     
     def setupGame(self):
-        self.board_object = PygameChessBoard(ChessBoard(), self.board_size[0])
+        self.board_object = PygameChessBoard(ClientBoard(), self.board_size[0])
+        # self.board_object = PygameChessBoard(ChessBoard(), self.board_size[0])
 
 
 
