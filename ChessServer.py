@@ -70,6 +70,7 @@ class ClientThread:
         while self.active:
             msg = self.client_socket.recv(64).decode()
             if msg == '!DISCONNECT': break
+            self.handleMsg(msg)
 
         self.client_socket.close()
 
@@ -87,6 +88,11 @@ class ClientThread:
         new_board = []
         for row in board: new_board += [item for item in row]
         self.sendMsg({'BOARD' : ' '.join(str(item) for item in new_board)})
+
+    def handleMsg(self, msg):
+        
+        if msg == 
+
 
 
 
