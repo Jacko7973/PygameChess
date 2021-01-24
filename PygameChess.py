@@ -47,8 +47,7 @@ class PygameChess:
 
     
     def setupGame(self):
-        self.board_object = PygameChessBoard(ClientBoard(), self.board_size[0])
-        # self.board_object = PygameChessBoard(ChessBoard(), self.board_size[0])
+        self.board_object = PygameChessBoard(ChessBoard(), self.board_size[0])
 
 
 
