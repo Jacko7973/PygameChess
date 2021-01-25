@@ -5,7 +5,6 @@
 import numpy as np
 import copy
 
-alkf
 class Piece:
 
     def __init__(self, value):
