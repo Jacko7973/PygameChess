@@ -8,6 +8,7 @@ import pygame
 from pygame.locals import *
 
 from ChessBoard import ChessBoard
+from ClientBoard import ClientBoard
 from PygameChessBoard import PygameChessBoard
 
 class PygameChess:
